@@ -604,6 +604,7 @@ int delete_char(void)
 				temp_atom = temp_atom->next_atom;
 			CURRENT_ATOM = temp_atom;
 			BUFFER_SCREEN.current_char_count = CURRENT_LINE->char_count;
+			max_column = CURRENT_LINE->char_count - 1;
 			while('\n' != temp_atom->data[temp_atom_index])
 				temp_atom_index++;
 			if (1 == CURRENT_LINE->char_count)
@@ -659,6 +660,7 @@ int delete_char(void)
 				temp_line->previous_line=NULL;
 				temp_line->next_line=NULL;
 				CURRENT_LINE->line_number--;
+				max_column = 0;
 				if (1 == CURRENT_LINE->line_number)
 					to_super_critical();
 				else
@@ -697,6 +699,7 @@ int delete_char(void)
 				}
 				//starting shift
 				BUFFER_SCREEN.current_char_count = temp_line->char_count;
+				max_column = temp_line->char_count - 1;
 				temp_line->char_count = CURRENT_LINE->char_count + temp_line->char_count - 1; //-1 bcoz we just have one \n instead of two
 				CURRENT_ATOM = pointer_atom;
 				BUFFER_SCREEN.current_index = pointer_char_index;
@@ -731,6 +734,8 @@ int delete_char(void)
 		if(2 == BUFFER_SCREEN.current_char_count)//when going to critical state after deleting have to point to '\n'
 		{
 			(CURRENT_LINE->char_count)--;
+			max_column = 0;
+
 			if (1 == CURRENT_LINE->line_number)
 				to_super_critical();
 			else
@@ -752,6 +757,7 @@ int delete_char(void)
 			CURRENT_ATOM = temp_atom;
 			BUFFER_SCREEN.current_index = temp_atom_index;
 			BUFFER_SCREEN.current_char_count--;
+			max_column--;
 		}
 	}
 	return 2;	//when there is insertion of just NOP in place of that char
