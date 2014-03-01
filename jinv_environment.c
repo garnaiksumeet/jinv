@@ -399,7 +399,7 @@ int newline_insertion(void)
 		{
 			tmp_new_atom->data[0]='\n';
 			tmp_new_atom->previous_atom=CURRENT_ATOM;
-			tmp_new_line->first_atom=CURRENT_LINE->next_atom;
+			tmp_new_line->first_atom=CURRENT_LINE->first_atom;
 			(CURRENT_ATOM->next_atom)->previous_atom=NULL;
 			CURRENT_ATOM->next_atom=tmp_new_atom;
 			CURRENT_ATOM=tmp_new_atom;
@@ -504,7 +504,7 @@ int insert_char(int ch)
 	}
 	else
 	{
-		int i,index=BUFFER_SCREEN.current_index,wrapped,will_wrap;
+		int i,n,index=BUFFER_SCREEN.current_index,wrapped,will_wrap;
 		char tmpch;
 		struct atomic_buffer *temp_cp,*traverse;
 		wrapped = (CURRENT_LINE->next_line->screen_line - CURRENT_LINE->screen_line);
@@ -557,10 +557,12 @@ int insert_char(int ch)
 				break;
 		}
 		will_wrap = jerk_virtual_screen(CURRENT_LINE->first_atom,0,traverse,i-1);
-		
+		n = will_wrap%10000;//jerk_virtual_screen gives both no of wrapped lines and virtual column
+		max_column = (n-1)*BUFFER_SCREEN.max_x + BUFFER_SCREEN.current_column;//change the index in virtual screen as well	
+		will_wrap = will_wrap/10000;//get no of wrapped lines.
 		if(will_wrap == wrapped) //don't need to refresh the entire screen just the current line
 		{
-			return 1;
+			return 2;
 		}
 		else//refresh entire screen
 		{
