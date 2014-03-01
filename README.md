@@ -11,4 +11,4 @@ cd ~/project_directory
 <br>
 make
 <br>
-./jinv <filename>
+./jinv filename
