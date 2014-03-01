@@ -606,7 +606,15 @@ int delete_char(void)
 					temp_topline_buffer=temp_line;
 				if (temp_line == BUFFER_SCREEN.topline_buffer)
 					BUFFER_SCREEN.topline_buffer=CURRENT_LINE;
-				temp_line->previous_line->next_line=CURRENT_LINE;
+				if(1 != temp_line->line_number) //considering temp_line == first line
+				{
+					temp_line->previous_line->next_line=CURRENT_LINE;
+				}
+				else
+				{
+					FIRST_LINE=CURRENT_LINE;
+					BUFFER_SCREEN.topline_buffer=CURRENT_LINE;
+				}
 				CURRENT_LINE->previous_line=temp_line->previous_line;
 				temp_line->previous_line=NULL;
 				temp_line->next_line=NULL;
