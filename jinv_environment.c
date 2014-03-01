@@ -296,49 +296,60 @@ int newline_insertion(void)
 	struct line_buffer *tmp_next_line=CURRENT_LINE->next_line;
 	struct line_buffer *tmp_previous_line=CURRENT_LINE->previous_line;
 
-	give_line(LAST_CHUNK,CURRENT_LINE);
-	//NEED TO CHANGE ACCORDINGLY AS THE STATIC GLOBAL DONOT CHANGE***********************************************************************
-	LAST_CHUNK=CURRENT_ATOM;
-	tmp_new_line=CURRENT_LINE;
-	tmp_new_atom=CURRENT_ATOM;
-	CURRENT_LINE->screen_line=tmp_current_line->screen_line;
-	if ((1 == BUFFER_SCREEN.current_char_count) || (tmp_current_line->char_count == BUFFER_SCREEN.current_char_count))	//when the cursor is at first position of the line or at the last position of the line
+	//they do the basic job of allocating and assigning
+	tmp_new_line=give_line(LAST_CHUNK,CURRENT_LINE);
+	LAST_CHUNK=tmp_new_line->first_atom;
+	tmp_new_atom=tmp_new_line->first_atom;
+	tmp_new_line->screen_line=CURRENT_LINE->screen_line;//DONOT CHANGE THIS LINE.assigned to the same line number as the current line
+	if ((1 == BUFFER_SCREEN.current_char_count) || (CURRENT_LINE->char_count == BUFFER_SCREEN.current_char_count))	//when the cursor is at first position of the line or at the last position of the line
 	{
 		tmp_new_line->char_count=1;
 		tmp_new_atom->data[0]='\n';
-		if (1 == BUFFER_SCREEN.current_char_count)	//when we insert line before the current line
+		if (1 == BUFFER_SCREEN.current_char_count)	//when we insert line before the current line then the new cursor shall remain below the same char and in buffer we are to point to the \n of the line just inserted
 		{
+			//node insertion before CURRENT_LINE and change of line number
 			(tmp_new_line->line_number)--;
-			tmp_new_line->next_line=tmp_current_line;
-			tmp_new_line->previous_line=tmp_previous_line;
-			tmp_current_line->next_line=tmp_next_line;
-			tmp_current_line->previous_line=tmp_new_line;
-			CURRENT_LINE=tmp_current_line;
+			tmp_new_line->next_line=CURRENT_LINE;
+			tmp_new_line->previous_line=CURRENT_LINE->previous_line;
+			//CURRENT_LINE->next_line=tmp_next_line;	//I GUESS THIS STATEMENT IS NOT REQUIRED
+			CURRENT_LINE->previous_line=tmp_new_line;
+			//CURRENT_LINE=tmp_current_line;		//I GUESS THIS STATEMENT IS NOT REQUIRED TOO
+			CURRENT_ATOM=tmp_new_line->first_atom;
 			BUFFER_SCREEN.current_index=0;
-			if (1 == tmp_current_line->line_number)	//when we insert a newline before the first line of the file
+			if (1 == CURRENT_LINE->line_number)	//when we insert a newline before the first line of the file
 				FIRST_LINE=tmp_new_line;
 			else					//when line is inserted before any line other than first line
-				tmp_previous_line->next_line=tmp_new_line;
+				(CURRENT_LINE->previous_line)->next_line=tmp_new_line;
+			//if case is when we are at the first position of the first line of the screen
 			if (BUFFER_SCREEN.topline_buffer == CURRENT_LINE)
 			{
-				BUFFER_SCREEN.topline_buffer=(CURRENT_LINE)->previous_line;
+				BUFFER_SCREEN.topline_buffer=CURRENT_LINE->previous_line;
 				BUFFER_SCREEN.currentline_screen=1;
 				(BUFFER_SCREEN.bottomline_buffer)->screen_line=-1;
 			}
 			else
 			{
-				if (BUFFER_SCREEN.bottomline_buffer == CURRENT_LINE)//only one line needs to be made in the screen,hence we move up one line.
+				if (BUFFER_SCREEN.bottomline_buffer == CURRENT_LINE)//when we are the first position of the last line of the screen and we press enter then we make the screen scroll up
 				{
 					(BUFFER_SCREEN.topline_buffer)->screen_line=-1;
-					BUFFER_SCREEN.topline_buffer=BUFFER_SCREEN.topline_buffer->next_line;
+					BUFFER_SCREEN.topline_buffer=(BUFFER_SCREEN.topline_buffer)->next_line;
 				}
+				//we donot make changes to the topline_buffer in BUFFER_SCREEN but just make the last line of the screen out of screen.
+				else
+					(BUFFER_SCREEN.bottomline_buffer)->screen_line=-1;
 			}
 		}
-		else			//when the line inserted is after the current line
+		else			//when the line inserted is after the current line i.e we press enter when at the end of any line
 		{
-			tmp_new_line->next_line=tmp_next_line;
-			tmp_next_line->previous_line=tmp_new_line;
-			//for finding the next char i.e find \n of the previous line
+			//on the screen the cursor shall be on the new line just inserted and in buffer we shall be pointing to the \n of the previous line(CURRENT_LINE before pressing enter)
+			//node insertion after the CURRENT_LINE and changing of CURRENT_LINE and CURRENT_ATOM and current_index in BUFFER_SCREEN
+			tmp_new_line->next_line=CURRENT_LINE->next_line;
+			tmp_new_line->previous_line=CURRENT_LINE;
+			(CURRENT_LINE->next_line)->previous_line=tmp_new_line;
+			CURRENT_LINE->next_line=tmp_new_line;
+			CURRENT_LINE=tmp_new_line;
+			//we now need to point to the \n of the CURRENT_LINE(the old one before pressing enter)
+			//we donot search for last atom and then for \n in it because we know that it is right now pointing to the char just before \n.We are doing this for optimisation instead of calling to_critical
 			if ((MAX_SIZE - 1) == BUFFER_SCREEN.current_index)
 			{
 				CURRENT_ATOM=tmp_current_atom->next_atom;
@@ -359,6 +370,7 @@ int newline_insertion(void)
 				else
 					BUFFER_SCREEN.current_index++;
 			}
+			//when we press enter at the last line the screen scrolls up but in any other case it scrolls down.
 			if (BUFFER_SCREEN.bottomline_buffer == CURRENT_LINE->previous_line)
 			{
 				(BUFFER_SCREEN.topline_buffer)->screen_line=-1;
@@ -366,7 +378,7 @@ int newline_insertion(void)
 			}
 			else
 				(BUFFER_SCREEN.bottomline_buffer)->screen_line=-1;
-			tmp_current_line=tmp_next_line;	//this assignment is just to make up for the laziness of not writing 5 more line because we are to increase lines from next line but in the above case from current line
+			tmp_current_line=tmp_new_line;	//this assignment is just to make up for the laziness of not writing 5 more line because we are to increase lines from next line but in the above case from current line
 		}
 		while (NULL != tmp_current_line)
 		{
@@ -376,43 +388,44 @@ int newline_insertion(void)
 	}
 	else	//when enter is pressed in between a line
 	{
-		CURRENT_LINE->next_line=tmp_next_line;
-		tmp_next_line->previous_line=CURRENT_LINE;
-		tmp_new_line->char_count=(tmp_current_line->char_count - BUFFER_SCREEN.current_char_count + 1);
-		tmp_current_line->char_count=BUFFER_SCREEN.current_char_count;
+		tmp_new_line->next_line=CURRENT_LINE->next_line;
+		tmp_new_line->previous_line=CURRENT_LINE;
+		(CURRENT_LINE->next_line)->previous_line=tmp_new_line;
+		CURRENT_LINE->next_line=tmp_new_line;
+		tmp_new_line->char_count=(CURRENT_LINE->char_count - BUFFER_SCREEN.current_char_count + 1);//y-(x+1)+1
+		CURRENT_LINE->char_count=BUFFER_SCREEN.current_char_count;//(x+1)
 		BUFFER_SCREEN.current_char_count=1;
 		if ((MAX_SIZE - 1) == BUFFER_SCREEN.current_index) //when the current char is the last char of that atom before pressing enter
 		{
 			tmp_new_atom->data[0]='\n';
-			tmp_new_atom->previous_atom=tmp_current_atom;
-			tmp_new_line->first_atom=tmp_current_atom->next_atom;
-			(tmp_current_atom->next_atom)->previous_atom=NULL;
-			tmp_current_atom->next_atom=tmp_new_atom;
+			tmp_new_atom->previous_atom=CURRENT_ATOM;
+			tmp_new_line->first_atom=CURRENT_LINE->next_atom;
+			(CURRENT_ATOM->next_atom)->previous_atom=NULL;
+			CURRENT_ATOM->next_atom=tmp_new_atom;
 			CURRENT_ATOM=tmp_new_atom;
 			BUFFER_SCREEN.current_index=0;
 		}
 		else	//when there is still place for \n to be placed in that atom
 		{
 			int tmp_copy;
-			int tmp_fast=(BUFFER_SCREEN.current_index + 1);
-
-			for (tmp_copy=tmp_fast;tmp_copy < MAX_SIZE;tmp_copy++)
+//SEE FROM HERE
+			for (tmp_copy=(BUFFER_SCREEN.current_index + 1);tmp_copy < MAX_SIZE;tmp_copy++)
 			{
-				tmp_new_atom->data[tmp_copy - tmp_fast]=tmp_current_atom->data[tmp_copy];
+				tmp_new_atom->data[tmp_copy - (BUFFER_SCREEN.current_index + 1)]=tmp_current_atom->data[tmp_copy];
 				tmp_current_atom->data[tmp_copy]='\0';
 			}
-			tmp_current_atom->data[tmp_fast]='\n';
+			tmp_current_atom->data[(BUFFER_SCREEN.current_index + 1)]='\n';
 			if (NULL == tmp_current_atom->next_atom)	//when there is no atom after this atom
-				tmp_new_atom->data[MAX_SIZE - tmp_fast]='\n';
+				tmp_new_atom->data[MAX_SIZE - (BUFFER_SCREEN.current_index + 1)]='\n';
 			else
 			{
-				for (tmp_copy=(MAX_SIZE - tmp_fast);tmp_copy < MAX_SIZE;tmp_copy++)
+				for (tmp_copy=(MAX_SIZE - (BUFFER_SCREEN.current_index + 1));tmp_copy < MAX_SIZE;tmp_copy++)
 					tmp_new_atom->data[tmp_copy]=JERK_NOP;
 				tmp_new_atom->next_atom=tmp_current_atom->next_atom;
 				tmp_current_atom->next_atom=NULL;
 				(tmp_new_atom->next_atom)->previous_atom=tmp_new_atom;
 			}
-			BUFFER_SCREEN.current_index=tmp_fast;
+			BUFFER_SCREEN.current_index++;
 			CURRENT_ATOM=tmp_current_atom;
 		}
 		while (NULL != tmp_next_line)
@@ -503,8 +516,6 @@ int insert_char(int ch)
 		}
 		if(MAX_SIZE == i)
 		{
-			imcalled();
-			
 			tmp_insert=give_atom(ATOM,LAST_CHUNK,CURRENT_ATOM);
 			LAST_CHUNK=tmp_insert;
 			temp_cp = CURRENT_ATOM->next_atom;
@@ -557,75 +568,8 @@ int insert_char(int ch)
 		}
 		
 	}
-/*	while (1)
-	{
-		//for right side check
-		if (1 == flag_insert)
-			break;
-		if ((MAX_SIZE - 1) != tmp_index_right)
-			tmp_index_right++;
-		else
-		{
-			tmp_insert_right=tmp_insert_right->next_atom;
-			tmp_index_right=0;
-		}
-		flag_insert=i>nsert_char_right(tmp_insert_right,tmp_index_right,ch);
-		//for le.ft side check
-		if (1 == flag_insert)
-			break;
-		if (0 != tmp_index_left)
-			tmp_index_left--;
-		else
-		{
-			tmp_insert_left=tmp_insert_left->previous_atom;
-			tmp_index_left=(MAX_SIZE - 1);
-		}
-		flag_insert=insert_char_left(tmp_insert_left,tmp_index_left,ch);
-	}*/
 	return 0;
 }
-
-int imcalled(void)
-{
-	return 0;
-}
-/*int insert_char_right(struct atomic_buffer *tmp_atom,int tmp_index,int ch)
-{
-	if ((JERK_NOP == tmp_atom->data[tmp_index]) || ('\0' == tmp_atom->data[tmp_index]))
-	{
-		//shift all the chars after the current char upto this position and insert the new char in the position after current char position
-		struct atomic_buffer *tmp_shift_atom=tmp_atom;
-		struct atomic_buffer *tmp_insert_atom=CURRENT_ATOM;
-		int tmp_shift_index=tmp_index;
-		int tmp_insert_index=BUFFER_SCREEN.current_index;
-
-		if ((MAX_SIZE - 1) == BUFFER_SCREEN.current_index)
-		{
-			tmp_insert_atom=CURRENT_ATOM->next_atom;
-			tmp_insert_index=0;
-		}
-	//	while (1)		//shifts all the chars
-	//	{
-	//		//if ((tmp_shift_atom == tmp_insert_atom) && (tmp_shift_index == tmp_insert_index))
-	//	}
-		return 1;
-	}
-	else
-	{
-		if ((MAX_SIZE - 1) == tmp_index)
-		{
-			if ('\n' == tmp_atom->data[tmp_index])
-			{
-				//need to add a new atom to the line
-				return 1;
-			}
-		}
-	}
-	return 0;
-}
-*/
-
-
 int delete_char(void)
 {
 	struct line_buffer *temp_line,*temp_topline_buffer=NULL;
