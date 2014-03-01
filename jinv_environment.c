@@ -546,24 +546,7 @@ int delete_char(void)
 	int pointer_char_index,loop,temp_atom_index=0;
 	if(NULL == CURRENT_ATOM)//super critical
 	{
-		if (1 == CURRENT_LINE->char_count)	//when there is only \n in the first line and we press backspace
-		{
-			FIRST_LINE=CURRENT_LINE->next_line;
-			FIRST_LINE->previous_line=NULL;
-			CURRENT_LINE->next_line=NULL;
-			CURRENT_LINE=FIRST_LINE;
-			to_super_critical();
-			BUFFER_SCREEN.topline_buffer=CURRENT_LINE;
-			temp_line=FIRST_LINE;
-			while (NULL != temp_line->next_line)
-			{
-				(temp_line->line_number)--;
-				temp_line=temp_line->next_line;
-			}
-			return 1;
-		}
-		else
-			return 0;
+		return 0;
 	}
 	else if(1 == BUFFER_SCREEN.current_char_count) //move up current char is the first char in the line so shift the current line upstairs.
 	{
