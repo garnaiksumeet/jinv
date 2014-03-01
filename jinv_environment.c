@@ -449,6 +449,9 @@ int newline_insertion(void)
 }
 int insert_char(int ch)
 {
+	int wrapped;
+	struct atomic_buffer *temp_cp,*traverse;
+	wrapped = (CURRENT_LINE->next_line->screen_line - CURRENT_LINE->screen_line);
 	struct atomic_buffer *tmp_insert=CURRENT_ATOM;
 	int tmp_index=BUFFER_SCREEN.current_index;
 	int flag_insert=0;
@@ -500,14 +503,12 @@ int insert_char(int ch)
 		}
 		CURRENT_LINE->char_count++;
 		BUFFER_SCREEN.current_char_count++;
-		return 1;
+		return check_for_refresh(wrapped);
 	}
 	else
 	{
-		int i,n,index=BUFFER_SCREEN.current_index,wrapped,will_wrap;
+		int i,n,index=BUFFER_SCREEN.current_index;
 		char tmpch;
-		struct atomic_buffer *temp_cp,*traverse;
-		wrapped = (CURRENT_LINE->next_line->screen_line - CURRENT_LINE->screen_line);
 		for(i=index;i<MAX_SIZE;i++)
 		{
 			tmpch = CURRENT_ATOM->data[i];
@@ -549,6 +550,14 @@ int insert_char(int ch)
 		BUFFER_SCREEN.current_index++;
 		if(MAX_SIZE == BUFFER_SCREEN.current_index)
 			BUFFER_SCREEN.current_index = 0;
+		return check_for_refresh(wrapped);	
+	}
+	return 0;
+}
+int check_for_refresh(int wrapped)
+{
+		struct atomic_buffer *traverse;
+		int i,n,will_wrap;
 		traverse = CURRENT_LINE->first_atom;
 		while(NULL != traverse->next_atom) traverse = traverse->next_atom;
 		for(i=0;i<MAX_SIZE;i++)
@@ -562,15 +571,13 @@ int insert_char(int ch)
 		will_wrap = will_wrap/10000;//get no of wrapped lines.
 		if(will_wrap == wrapped) //don't need to refresh the entire screen just the current line
 		{
+
 			return 2;
 		}
 		else//refresh entire screen
 		{
 			return 1;
 		}
-		
-	}
-	return 0;
 }
 int delete_char(void)
 {
