@@ -1,4 +1,4 @@
-#include"jinv.h"
+#include "jinv.h"
 
 static struct current_position BUFFER_SCREEN;
 static int FILE_EXISTS=0; // 0 for YES 1 for NO.
@@ -230,8 +230,8 @@ int edit_mode(void)
 	{
 		if ((ch > 31) && (ch < 127))
 		{
-			insert_char(ch);
-			redisplay_line(1);
+			return_code = insert_char(ch);
+			redisplay_line(return_code);
 		}
 		if ((ch > KEY_BREAK) && (ch < KEY_HOME))
 		{
@@ -266,8 +266,8 @@ int edit_mode(void)
 		}
 		if ('\t' == ch)
 		{
-			insert_char(ch);
-			redisplay_line(1);
+			return_code = insert_char(ch);
+			redisplay_line(return_code);
 		}
 		if (10 == ch)
 		{
@@ -436,44 +436,128 @@ int newline_insertion(void)
 }
 int insert_char(int ch)
 {
-	struct atomic_buffer *tmp_insert_left=CURRENT_ATOM,*tmp_insert_right=CURRENT_ATOM;
-	int tmp_index_left=BUFFER_SCREEN.current_index,tmp_index_right=BUFFER_SCREEN.current_index;
+	struct atomic_buffer *tmp_insert=CURRENT_ATOM;
+	int tmp_index=BUFFER_SCREEN.current_index;
 	int flag_insert=0;
-
+	int flag_critical=0;
 	//need to take care of the case when we are actually pointing to '\n' of the previous line or NULL i.e the cursor position is first char of the first line
-	if (('\n' == CURRENT_ATOM->data[BUFFER_SCREEN.current_index]) || (NULL == CURRENT_ATOM))
+	if (NULL == CURRENT_ATOM)
+	{
+		CURRENT_ATOM=CURRENT_LINE->first_atom;
+		flag_critical = 1;
+	}
+
+	if('\n' == CURRENT_ATOM->data[BUFFER_SCREEN.current_index])
+	{
+		flag_critical = 1;	
+		CURRENT_ATOM=CURRENT_LINE->first_atom;
+	}
+ 
+	if (1 == flag_critical)
 	{
 		//checks if there is any free char in first atom and then allocates atom accordingly
-		CURRENT_ATOM=CURRENT_LINE->first_atom;
 		int i,j;
-
+		char temp;
 		for (i=0;i<MAX_SIZE;i++)
 		{
-			if ((CURRENT_ATOM->data[i] == JERK_NOP) || (CURRENT_ATOM->data[i] == '\0'))
+			temp = CURRENT_ATOM->data[i];
+			if ((temp == JERK_NOP) || (temp == '\0'))
 				break;
 		}
-		if (MAX_SIZE == i)	//insert a new atom before the current atom
+		if (MAX_SIZE == i)	//insert a new atom before the current atom if no space in current atom
 		{
-			tmp_insert_left=give_atom(ATOM,LAST_CHUNK,CURRENT_ATOM);
-			//NEED TO CHANGE ACCORDINGLY AS THE STATIC GLOBAL DONOT CHANGE*******************************************************
-			LAST_CHUNK=CURRENT_ATOM;
-			CURRENT_ATOM->next_atom=CURRENT_LINE->first_atom;
-			(CURRENT_LINE->first_atom)->previous_atom=CURRENT_ATOM;
-			CURRENT_LINE->first_atom=CURRENT_ATOM;
+			tmp_insert=give_atom(ATOM,LAST_CHUNK,CURRENT_ATOM);
+			LAST_CHUNK=tmp_insert;
 			for (i=1;i<MAX_SIZE;i++)
-				CURRENT_ATOM->data[i]=JERK_NOP;
-			CURRENT_ATOM->data[0]=(char)ch;
+				tmp_insert->data[i]=JERK_NOP;
+			tmp_insert->data[0]=(char)ch;
+			BUFFER_SCREEN.current_index=0;
+			CURRENT_ATOM->previous_atom = tmp_insert;
+			tmp_insert->next_atom = CURRENT_ATOM;
+			tmp_insert->previous_atom = NULL;
+			CURRENT_LINE->first_atom = tmp_insert;
+			CURRENT_ATOM = tmp_insert;
 		}
 		else
 		{
-			for (j=i;j>0;j--)
+			for (j=i;j>=0;j--)
 				CURRENT_ATOM->data[j]=CURRENT_ATOM->data[j - 1];
 			CURRENT_ATOM->data[0]=(char)ch;
 			BUFFER_SCREEN.current_index=0;
 		}
+		CURRENT_LINE->char_count++;
+		BUFFER_SCREEN.current_char_count++;
 		return 1;
 	}
-	while (1)
+	else
+	{
+		int i,index=BUFFER_SCREEN.current_index,wrapped,will_wrap;
+		char tmpch;
+		struct atomic_buffer *temp_cp,*traverse;
+		wrapped = (CURRENT_LINE->next_line->screen_line - CURRENT_LINE->screen_line);
+		for(i=index;i<MAX_SIZE;i++)
+		{
+			tmpch = CURRENT_ATOM->data[i];
+			if('\0' == tmpch || JERK_NOP ==  tmpch)
+				break;
+		}
+		if(MAX_SIZE == i)
+		{
+			imcalled();
+			
+			tmp_insert=give_atom(ATOM,LAST_CHUNK,CURRENT_ATOM);
+			LAST_CHUNK=tmp_insert;
+			temp_cp = CURRENT_ATOM->next_atom;
+			CURRENT_ATOM->next_atom = tmp_insert;
+			tmp_insert->previous_atom = CURRENT_ATOM;
+			tmp_insert->next_atom = temp_cp;
+			for(i=0;i<MAX_SIZE;i++) 
+				tmp_insert->data[i] = JERK_NOP;
+			for(i = index+1;i<MAX_SIZE;i++)
+			{
+				tmp_insert->data[i-(index+1)] = CURRENT_ATOM->data[i];
+				CURRENT_ATOM->data[i] = JERK_NOP;
+			}
+			if(MAX_SIZE == (index + 1))
+			{
+				index = -1;
+				CURRENT_ATOM = tmp_insert;
+			}
+			CURRENT_ATOM->data[index + 1] = (char)ch;
+		}
+		else
+		{
+			for(i;i>index;i--)
+			{
+				CURRENT_ATOM->data[i] = CURRENT_ATOM->data[i - 1];	
+			}
+			CURRENT_ATOM->data[index + 1] = (char)ch;
+		}
+		CURRENT_LINE->char_count++;
+		BUFFER_SCREEN.current_char_count++;
+		BUFFER_SCREEN.current_index++;
+		if(MAX_SIZE == BUFFER_SCREEN.current_index)
+			BUFFER_SCREEN.current_index = 0;
+		traverse = CURRENT_LINE->first_atom;
+		while(NULL != traverse->next_atom) traverse = traverse->next_atom;
+		for(i=0;i<MAX_SIZE;i++)
+		{
+			if('\n' == traverse->data[i])
+				break;
+		}
+		will_wrap = jerk_virtual_screen(CURRENT_LINE->first_atom,0,traverse,i-1);
+		
+		if(will_wrap == wrapped) //don't need to refresh the entire screen just the current line
+		{
+			return 1;
+		}
+		else//refresh entire screen
+		{
+			return 1;
+		}
+		
+	}
+/*	while (1)
 	{
 		//for right side check
 		if (1 == flag_insert)
@@ -485,8 +569,8 @@ int insert_char(int ch)
 			tmp_insert_right=tmp_insert_right->next_atom;
 			tmp_index_right=0;
 		}
-		flag_insert=insert_char_right(tmp_insert_right,tmp_index_right,ch);
-		//for left side check
+		flag_insert=i>nsert_char_right(tmp_insert_right,tmp_index_right,ch);
+		//for le.ft side check
 		if (1 == flag_insert)
 			break;
 		if (0 != tmp_index_left)
@@ -497,10 +581,15 @@ int insert_char(int ch)
 			tmp_index_left=(MAX_SIZE - 1);
 		}
 		flag_insert=insert_char_left(tmp_insert_left,tmp_index_left,ch);
-	}
+	}*/
 	return 0;
 }
-int insert_char_right(struct atomic_buffer *tmp_atom,int tmp_index,int ch)
+
+int imcalled(void)
+{
+	return 0;
+}
+/*int insert_char_right(struct atomic_buffer *tmp_atom,int tmp_index,int ch)
 {
 	if ((JERK_NOP == tmp_atom->data[tmp_index]) || ('\0' == tmp_atom->data[tmp_index]))
 	{
@@ -514,11 +603,11 @@ int insert_char_right(struct atomic_buffer *tmp_atom,int tmp_index,int ch)
 		{
 			tmp_insert_atom=CURRENT_ATOM->next_atom;
 			tmp_insert_index=0;
-		}/*
-		while (1)		//shifts all the chars
-		{
-			//if ((tmp_shift_atom == tmp_insert_atom) && (tmp_shift_index == tmp_insert_index))
-		}*/
+		}
+	//	while (1)		//shifts all the chars
+	//	{
+	//		//if ((tmp_shift_atom == tmp_insert_atom) && (tmp_shift_index == tmp_insert_index))
+	//	}
 		return 1;
 	}
 	else
@@ -534,11 +623,9 @@ int insert_char_right(struct atomic_buffer *tmp_atom,int tmp_index,int ch)
 	}
 	return 0;
 }
-int insert_char_left(struct atomic_buffer *tmp_atom,int tmp_index,int ch)
-{
+*/
 
-	return 0;
-}
+
 int delete_char(void)
 {
 	struct line_buffer *temp_line,*temp_topline_buffer=NULL;
@@ -695,15 +782,6 @@ int delete_char(void)
 				to_super_critical();
 			else
 				to_critical();
-			/*temp_line  = CURRENT_LINE->previous_line;
-			temp_atom = temp_line->first_atom;
-			while(NULL != temp_atom->next_atom)//goto the last atom for finding '\n'
-				temp_atom = temp_atom->next_atom;
-			while('\n' != temp_atom->data[temp_atom_index])
-				temp_atom_index++;
-			CURRENT_ATOM = temp_atom;
-			BUFFER_SCREEN.current_index = temp_atom_index;
-			BUFFER_SCREEN.current_char_count = 1;*/
 		}
 		else
 		{
