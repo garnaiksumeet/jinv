@@ -1,7 +1,7 @@
 jinv
 ====
 
-Its a tui based vi-like modal text editor wriiten entirely in C
+Its a tui based vi-like modal text editor written entirely in C
 
 Installation Instructions:
 <br>
