@@ -12,3 +12,8 @@ cd ~/project_directory
 make
 <br>
 ./jinv filename
+<br>
+press 'e' to go into edit mode and esc to return to command mode
+<br>
+quitting and writing to file are same as vi (:wq and :q/:q!)
+
