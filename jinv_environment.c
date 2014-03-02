@@ -428,6 +428,7 @@ int newline_insertion(void)
 			BUFFER_SCREEN.current_index++;
 			CURRENT_ATOM=tmp_current_atom;
 		}
+		CURRENT_LINE=tmp_new_line;
 		while (NULL != tmp_next_line)
 		{
 			(tmp_next_line->line_number)++;
