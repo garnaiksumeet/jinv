@@ -21,6 +21,8 @@
 #define JERK_NOP (char)-1
 #define ATOM_SIZE sizeof(struct atomic_buffer)
 #define LINE_SIZE sizeof(struct line_buffer)
+#define JINV_TRUE 1
+#define JINV_FALSE 0
 
 struct line_buffer
 {
@@ -65,7 +67,7 @@ struct line_buffer *current_first_line(void);
 int set_flag_edit(void);
 int end_screen(int);
 int command_reader(char*,int);
-int print_mesg(int,const char *);
+int print_mesg(int,int,const char *);
 int set_export(void *,void *,int,int);
 int jinv_getmaxyx(void);
 void jerk_flushinp(void);		//calls just flushinp() created for the same reason as jerk_getch()

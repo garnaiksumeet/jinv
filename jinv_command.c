@@ -13,17 +13,17 @@ int command_mode(FILE *IN)
 	char command_buffer[MAX_COMMAND_LENGTH];	//the array that contains the buffer for the commands given as input
 
 	in=IN;
-	print_mesg(0,NULL);
+	print_mesg(0,JINV_TRUE,NULL);
 	ch=jerk_getch();
 	while ('e' != ch)
 	{
 		if (1 == flag_command)
-			print_mesg(0,NULL);
+			print_mesg(0,JINV_TRUE,NULL);
 		switch (ch)
 		{
 			case ':':
 			{
-				print_mesg(0,":");
+				print_mesg(0,JINV_FALSE,":");
 				//jerk_flushinp();
 				save_exit_mode();
 				flag_command=1;
@@ -93,7 +93,7 @@ static int save_exit_mode(void)
 	{
 		if (1 == set_flag_edit())
 		{
-			print_mesg(0,"FILE HAS BEEN EDITED,ADD ! TO OVERWRITE ALL THE CHANGES");
+			print_mesg(0,JINV_TRUE,"FILE HAS BEEN EDITED,ADD ! TO OVERWRITE ALL THE CHANGES");
 			return 1;
 		}
 		else
@@ -111,7 +111,7 @@ static int save_exit_mode(void)
 	}
 	else
 	{
-		print_mesg(0,"INVALID JINV COMMAND");
+		print_mesg(0,JINV_TRUE,"INVALID JINV COMMAND");
 		return 1;
 	}
 }
@@ -173,16 +173,16 @@ static int save_file(void)//need to look for options of threading the process in
 
 			if (0 == perm)
 			{
-				print_mesg(0,"READ_ONLY FILE PRESS ENTER TO ENTER A NEW FILENAME:");
+				print_mesg(0,JINV_TRUE,"READ_ONLY FILE PRESS ENTER TO ENTER A NEW FILENAME:");
 			}
 			else
 			{
-				print_mesg(0,"NO WRITE PERMISSIONS IN THIS DIRECTORY PRESS ENTER TO ENTER A NEW FILENAME");
+				print_mesg(0,JINV_TRUE,"NO WRITE PERMISSIONS IN THIS DIRECTORY PRESS ENTER TO ENTER A NEW FILENAME");
 			}
 		}
 		else
 		{
-			print_mesg(0,"NO WRITE PERMISSIONS FOR THIS FILE");
+			print_mesg(0,JINV_TRUE,"NO WRITE PERMISSIONS FOR THIS FILE");
 			
 		}
 		in=request_new_filename(1);
@@ -201,12 +201,12 @@ static FILE * request_new_filename(int wait)
 	{
 		jerk_getch();
 	}
-	print_mesg(0,"NEW FILENAME:");
+	print_mesg(0,JINV_FALSE,"NEW FILENAME:");
 
 	command_reader(new_file_name,MAX_FILE_NAME);
 	if (0 == strlen(new_file_name))
 	{
-		print_mesg(0,"INVALID FILENAME");
+		print_mesg(0,JINV_TRUE,"INVALID FILENAME");
 		return NULL;
 	}
 //check if for LINUX i.e OS syscalls
@@ -215,7 +215,7 @@ static FILE * request_new_filename(int wait)
 	{
 		if(0 == access(new_file_name,W_OK))
 		{
-			print_mesg(0,"THE FILE NAME ENTERED ALREADY EXISTS: ENTER Y TO OVERWRITE N TO ENTER A NEW FILENAME");
+			print_mesg(0,JINV_TRUE,"THE FILE NAME ENTERED ALREADY EXISTS: ENTER Y TO OVERWRITE N TO ENTER A NEW FILENAME");
 			response = jerk_getch();
 			if(('y' == response) || ('Y' == response))
 			{
@@ -223,13 +223,13 @@ static FILE * request_new_filename(int wait)
 			}
 			else
 			{
-				print_mesg(0,NULL);
+				print_mesg(0,JINV_TRUE,NULL);
 				return request_new_filename(0);
 			}
 		}
 		else
 		{
-			print_mesg(0,"WRITE PERMISSION DENIED PRESS Y TO ENTER A NEW FILENAME or N TO EXIT");
+			print_mesg(0,JINV_TRUE,"WRITE PERMISSION DENIED PRESS Y TO ENTER A NEW FILENAME or N TO EXIT");
 			response = jerk_getch();
 			if(('y' == response) || ('Y' == response))
 			{
@@ -247,7 +247,7 @@ static FILE * request_new_filename(int wait)
 		close(writeperm);
 		if(-1 == writeperm) 
 		{
-			print_mesg(0,"WRITE PERMISSION DENIED PRESS Y TO ENTER A NEW FILENAME or N TO EXIT");
+			print_mesg(0,JINV_TRUE,"WRITE PERMISSION DENIED PRESS Y TO ENTER A NEW FILENAME or N TO EXIT");
 			response = jerk_getch();
 			if(('y' == response) || ('Y' == response))
 			{

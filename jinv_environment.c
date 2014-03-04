@@ -44,8 +44,8 @@ int set_export(void *first_line,void *last_chunk,int file_exists,int rwperm)
 	RWPERM=rwperm;
 	if (1 == FILE_EXISTS)
 	{
-		print_mesg((BUFFER_SCREEN.max_x/2 - 5),"[NEW FILE]");
-		print_mesg((BUFFER_SCREEN.max_x/2 - 10),"0L-0C");
+		print_mesg((BUFFER_SCREEN.max_x/2 - 5),JINV_TRUE,"[NEW FILE]");
+		//print_mesg((BUFFER_SCREEN.max_x/2 - 10),JINV_TRUE,"0L-0C");
 		BUFFER_SCREEN.topline_buffer=CURRENT_LINE;
 		BUFFER_SCREEN.bottomline_buffer=CURRENT_LINE;
 		BUFFER_SCREEN.topline_screen=0;
@@ -62,7 +62,7 @@ int set_export(void *first_line,void *last_chunk,int file_exists,int rwperm)
 	}
 	if (-1 == RWPERM)
 	{
-		print_mesg((BUFFER_SCREEN.max_x/2 - 10),"[PERMISSION DENIED]");
+		print_mesg((BUFFER_SCREEN.max_x/2 - 10),JINV_TRUE,"[PERMISSION DENIED]");
 		curs_set(0);
 		refresh();
 		return 1;
@@ -214,17 +214,17 @@ int edit_mode(void)
 
 	if (0 == RWPERM)//need to allow to edit if has permissions to create a file in that directory
 	{
-		print_mesg(0,"[READ-ONLY FILE]");
+		print_mesg(0,JINV_TRUE,"[READ-ONLY FILE]");
 		return 1;
 	}
 	if (-1 == RWPERM)
 	{
-		print_mesg(0,"[NO PERMISSION TO READ THE FILE]");
+		print_mesg(0,JINV_TRUE,"[NO PERMISSION TO READ THE FILE]");
 		return 1;
 	}
 	if (0 == flag_edit)
 		flag_edit=1;
-	print_mesg(0,"--EDIT-MODE--");
+	print_mesg(0,JINV_TRUE,"--EDIT-MODE--");
 	ch=getch();
 	while (27 != ch)		//loop until we get escape or its sequence,sequence is immaterial as we shall be flushing the rest
 	{
@@ -276,14 +276,14 @@ int edit_mode(void)
 		}
 		if (3 == ch)
 		{
-			print_mesg(0,"ENTER :q to exit the editor");
+			print_mesg(0,JINV_TRUE,"ENTER :q to exit the editor");
 			redisplay_line(0);
 			break;
 		}
 		ch=getch();
 		//continue;
 	}
-	print_mesg(0,NULL);
+	print_mesg(0,JINV_TRUE,NULL);
 	//flushinp();
 	return 0;
 }
@@ -1264,13 +1264,14 @@ int parse_position(void)
 	}
 	return (parse_max_column/(BUFFER_SCREEN.max_x - 1));
 }
-int print_mesg(int start_column,const char *msg)//need to increase the support for printing of variables
+int print_mesg(int start_column,int position_opt,const char *msg)//need to increase the support for printing of variables
 {
 	move(SCREEN_STATUS,0);
 	clrtoeol();
 	if (NULL != msg)
 		mvprintw(SCREEN_STATUS,start_column,msg);
-	move(BUFFER_SCREEN.currentline_screen,BUFFER_SCREEN.current_column);
+	if (JINV_TRUE == position_opt)			//when position_opt is true then move to the char it points else we stay in the command display line
+		move(BUFFER_SCREEN.currentline_screen,BUFFER_SCREEN.current_column);
 	refresh();
 }
 
