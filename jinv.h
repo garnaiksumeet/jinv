@@ -23,6 +23,10 @@
 #define LINE_SIZE sizeof(struct line_buffer)
 #define JINV_TRUE 1
 #define JINV_FALSE 0
+#define SCROLL_UP 1
+#define SCROLL_DOWN 0
+#define SCROLL_PARTIAL 2
+#define WRITE_BUFFER_SIZE 100
 
 struct line_buffer
 {
@@ -78,5 +82,6 @@ int edit_mode(void);	//switches into the edit mode. and takes input
 int move_cursor(int);	//moves the cursor in the screen depending on the current position
 int redisplay_line(int);	//redisplays the current line edited.
 int import_pointer(FILE *,void *);
+int screen_refresh_set(int,void *);
 
 #endif

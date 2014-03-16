@@ -17,15 +17,13 @@ static int display_atom_buffer(struct atomic_buffer *);	//displays each atom
 static int delete_char(void);	//deletes the character replaces with NOP, to the left of point.
 static int insert_char(int);	// inserts new chars into the position of point/ checks for NOP's before point or moves the remaining chars in line buffer.
 static int newline_insertion(void);	//when enter is pressed in edit mode
-static int insert_char_right(struct atomic_buffer *,int,int);	//returns 1 when inserted else 0
-static int insert_char_left(struct atomic_buffer *,int,int);	//returns 1 when inserted else 0
-//int left_wrap(char);			//when we move across a wraped line leftward
 static int to_super_critical(void);		//when the key press asks to move to the first char of the file
 static int to_critical(void);			//when the key press asks to move to the first char of the line except the first one
 static int from_critical(void);			//when the key press asks to move away from the first char of the line except the first one
 static int parse_position(void);		//it parses the current_position and gives the correct location when the navigation keys are pressed up or down
 static int jerk_virtual_screen(struct atomic_buffer *,int,struct atomic_buffer *,int);
 static int edit_set_cursor(void);
+static int check_for_refresh(int);
 
 
 int jinv_getmaxyx(void)
@@ -82,7 +80,7 @@ int set_export(void *first_line,void *last_chunk,int file_exists,int rwperm)
 	}
 	return -1;
 }
-int screen_display(void)	//before calling screen_display we must set topline_buffer,currentline_screen,current_column, current_char_count
+static int screen_display(void)	//before calling screen_display we must set topline_buffer,currentline_screen,current_column, current_char_count
 {
 	//int i=0;
 	int c_x,c_y,tmp_useless;
@@ -154,7 +152,7 @@ int screen_display(void)	//before calling screen_display we must set topline_buf
 		}
 	}
 }
-int display_line_buffer(void)		//before calling we must set bottomline_buffer to CURRENT_LINE when refreshing individual line and return bottomline_buffer its original value after the call
+static int display_line_buffer(void)		//before calling we must set bottomline_buffer to CURRENT_LINE when refreshing individual line and return bottomline_buffer its original value after the call
 {
 	struct atomic_buffer *tmp;
 
@@ -167,7 +165,7 @@ int display_line_buffer(void)		//before calling we must set bottomline_buffer to
 	getyx(stdscr,BUFFER_SCREEN.currentline_screen,BUFFER_SCREEN.current_column);
 	return 0;
 }
-int display_atom_buffer(struct atomic_buffer *cur_atom)
+static int display_atom_buffer(struct atomic_buffer *cur_atom)
 {
 	int i=0;
 
@@ -287,7 +285,7 @@ int edit_mode(void)
 	//flushinp();
 	return 0;
 }
-int newline_insertion(void)
+static int newline_insertion(void)
 {
 	struct line_buffer *tmp_new_line=NULL;
 	struct line_buffer *tmp_current_line=CURRENT_LINE;
@@ -296,7 +294,7 @@ int newline_insertion(void)
 	struct line_buffer *tmp_next_line=CURRENT_LINE->next_line;
 	struct line_buffer *tmp_previous_line=CURRENT_LINE->previous_line;
 
-	//they do the basic job of allocating and assigning
+	//these do the basic job of allocating and assigning
 	tmp_new_line=give_line(LAST_CHUNK,CURRENT_LINE);
 	LAST_CHUNK=tmp_new_line->first_atom;
 	tmp_new_atom=tmp_new_line->first_atom;
@@ -311,9 +309,7 @@ int newline_insertion(void)
 			(tmp_new_line->line_number)--;
 			tmp_new_line->next_line=CURRENT_LINE;
 			tmp_new_line->previous_line=CURRENT_LINE->previous_line;
-			//CURRENT_LINE->next_line=tmp_next_line;	//I GUESS THIS STATEMENT IS NOT REQUIRED
 			CURRENT_LINE->previous_line=tmp_new_line;
-			//CURRENT_LINE=tmp_current_line;		//I GUESS THIS STATEMENT IS NOT REQUIRED TOO
 			CURRENT_ATOM=tmp_new_line->first_atom;
 			BUFFER_SCREEN.current_index=0;
 			if (1 == CURRENT_LINE->line_number)	//when we insert a newline before the first line of the file
@@ -322,22 +318,15 @@ int newline_insertion(void)
 				(CURRENT_LINE->previous_line)->next_line=tmp_new_line;
 			//if case is when we are at the first position of the first line of the screen
 			if (BUFFER_SCREEN.topline_buffer == CURRENT_LINE)
-			{
-				BUFFER_SCREEN.topline_buffer=CURRENT_LINE->previous_line;
-				BUFFER_SCREEN.currentline_screen=1;
-				(BUFFER_SCREEN.bottomline_buffer)->screen_line=-1;
-			}
+				screen_refresh_set(SCROLL_DOWN,NULL);
 			else
 			{
 				if (BUFFER_SCREEN.bottomline_buffer == CURRENT_LINE)//when we are the first position of the last line of the screen and we press enter then we make the screen scroll up
-				{
-					(BUFFER_SCREEN.topline_buffer)->screen_line=-1;
-					BUFFER_SCREEN.topline_buffer=(BUFFER_SCREEN.topline_buffer)->next_line;
-				}
-				//we donot make changes to the topline_buffer in BUFFER_SCREEN but just make the last line of the screen out of screen.
+					screen_refresh_set(SCROLL_UP,NULL);
 				else
-					(BUFFER_SCREEN.bottomline_buffer)->screen_line=-1;
+					screen_refresh_set(SCROLL_PARTIAL,CURRENT_LINE->first_atom);
 			}
+			//don't need to change the value of CURRENT_LINE
 		}
 		else			//when the line inserted is after the current line i.e we press enter when at the end of any line
 		{
@@ -347,7 +336,6 @@ int newline_insertion(void)
 			tmp_new_line->previous_line=CURRENT_LINE;
 			(CURRENT_LINE->next_line)->previous_line=tmp_new_line;
 			CURRENT_LINE->next_line=tmp_new_line;
-			CURRENT_LINE=tmp_new_line;
 			//we now need to point to the \n of the CURRENT_LINE(the old one before pressing enter)
 			//we donot search for last atom and then for \n in it because we know that it is right now pointing to the char just before \n.We are doing this for optimisation instead of calling to_critical
 			if ((MAX_SIZE - 1) == BUFFER_SCREEN.current_index)
@@ -370,17 +358,15 @@ int newline_insertion(void)
 				else
 					BUFFER_SCREEN.current_index++;
 			}
-			//when we press enter at the last line the screen scrolls up but in any other case it scrolls down.
-			if (BUFFER_SCREEN.bottomline_buffer == CURRENT_LINE->previous_line)
-			{
-				(BUFFER_SCREEN.topline_buffer)->screen_line=-1;
-				BUFFER_SCREEN.topline_buffer=(BUFFER_SCREEN.topline_buffer)->next_line;
-			}
+			//when we press enter at the last line the screen scrolls up but in any other case it scrolls down partially
+			if (BUFFER_SCREEN.bottomline_buffer == CURRENT_LINE)//the CURRENT_LINE is currently the old one
+				screen_refresh_set(SCROLL_UP,NULL);
 			else
-				(BUFFER_SCREEN.bottomline_buffer)->screen_line=-1;
+				screen_refresh_set(SCROLL_PARTIAL,tmp_new_line->first_atom);
+			CURRENT_LINE=tmp_new_line;
 			tmp_current_line=tmp_new_line;	//this assignment is just to make up for the laziness of not writing 5 more line because we are to increase lines from next line but in the above case from current line
 		}
-		while (NULL != tmp_current_line)
+		while (NULL != tmp_current_line)//update the new line numbers
 		{
 			(tmp_current_line->line_number)++;
 			tmp_current_line=tmp_current_line->next_line;
@@ -428,27 +414,80 @@ int newline_insertion(void)
 			BUFFER_SCREEN.current_index++;
 			CURRENT_ATOM=tmp_current_atom;
 		}
+		if (BUFFER_SCREEN.bottomline_buffer == CURRENT_LINE)//the CURRENT_LINE is currently the old one
+			screen_refresh_set(SCROLL_UP,NULL);
+		else
+			screen_refresh_set(SCROLL_PARTIAL,tmp_new_line->first_atom);
 		CURRENT_LINE=tmp_new_line;
 		while (NULL != tmp_next_line)
 		{
 			(tmp_next_line->line_number)++;
 			tmp_next_line=tmp_next_line->next_line;
 		}
-		if (tmp_current_line == BUFFER_SCREEN.bottomline_buffer)//when the topline is to be moved out of screen
-		{
-			(BUFFER_SCREEN.topline_buffer)->screen_line=-1;
-			BUFFER_SCREEN.topline_buffer=(BUFFER_SCREEN.topline_buffer)->next_line;
-		}
-		else	//when the bottomline is to be moved out of screen
-		{
-			struct line_buffer *tmp_bottomline_screen=BUFFER_SCREEN.bottomline_buffer;
-			tmp_bottomline_screen->screen_line=-1;
-		}
 	}
 	max_column=0;
 	return 1;
 }
-int insert_char(int ch)
+int screen_refresh_set(int scroll_opt,void *tmp_first_atom)//this function is to be called when the CURRENT_LINE is not updated after editing but the screen is refreshed
+{
+	switch (scroll_opt)
+	{
+		case SCROLL_UP:
+		{
+			//when the screen is scrolled up one line
+			(BUFFER_SCREEN.topline_buffer)->screen_line=-1;
+			BUFFER_SCREEN.topline_buffer=(BUFFER_SCREEN.topline_buffer)->next_line;
+			BUFFER_SCREEN.currentline_screen=(BUFFER_SCREEN.currentline_screen + ((BUFFER_SCREEN.topline_buffer)->screen_line - 1));//since topline_buffer is now the line next to topline.
+			BUFFER_SCREEN.current_column=1;
+			break;
+		}
+		case SCROLL_DOWN:
+		{
+			//when the screen is scrolled down one line
+			BUFFER_SCREEN.topline_buffer=(BUFFER_SCREEN.topline_buffer)->previous_line;
+			BUFFER_SCREEN.currentline_screen=1;
+			BUFFER_SCREEN.current_column=1;
+			(BUFFER_SCREEN.bottomline_buffer)->screen_line=-1;
+			break;
+		}
+		case SCROLL_PARTIAL:
+		{
+			//when we are changing the screen but not actually scrolling
+			BUFFER_SCREEN.currentline_screen++;
+			if (BUFFER_SCREEN.max_x == (BUFFER_SCREEN.currentline_screen + 2))
+			{
+				struct atomic_buffer *tmp_atom_virtual=tmp_first_atom;
+				int tmp_line_wrap,tmp_end_index=0;
+
+				while (NULL != tmp_atom_virtual->next_atom)
+					tmp_atom_virtual=tmp_atom_virtual->next_atom;
+				while (tmp_atom_virtual->data[tmp_end_index] != '\n')
+					tmp_end_index++;
+				tmp_line_wrap=(jerk_virtual_screen(tmp_first_atom,0,tmp_atom_virtual,tmp_end_index)/10000 + 1);//number of lines its wrapped around
+				if (tmp_line_wrap > 1)
+				{
+					struct line_buffer *tmp_topline=BUFFER_SCREEN.topline_buffer;
+					//to check to find the number of lines required to shift above to fit the line
+					do
+					{
+						tmp_topline=tmp_topline->next_line;
+					}while ((tmp_line_wrap - 1) >= (tmp_topline->screen_line - (BUFFER_SCREEN.topline_buffer)->screen_line));
+					while (BUFFER_SCREEN.topline_buffer != tmp_topline)
+					{
+						(BUFFER_SCREEN.topline_buffer)->screen_line=-1;
+						BUFFER_SCREEN.topline_buffer=(BUFFER_SCREEN.topline_buffer)->next_line;
+					}
+				}
+			}
+			(BUFFER_SCREEN.bottomline_buffer)->screen_line=-1;
+			BUFFER_SCREEN.bottomline_buffer=((BUFFER_SCREEN.bottomline_buffer)->next_line);
+			BUFFER_SCREEN.current_column=1;
+			break;
+		}
+	}
+	return 0;
+}
+static int insert_char(int ch)
 {
 	int wrapped;
 	struct atomic_buffer *temp_cp,*traverse;
@@ -466,8 +505,8 @@ int insert_char(int ch)
 
 	if('\n' == CURRENT_ATOM->data[BUFFER_SCREEN.current_index])
 	{
-		flag_critical = 1;	
 		CURRENT_ATOM=CURRENT_LINE->first_atom;
+		flag_critical = 1;
 	}
  
 	if (1 == flag_critical)
@@ -555,7 +594,7 @@ int insert_char(int ch)
 	}
 	return 0;
 }
-int check_for_refresh(int wrapped)
+static int check_for_refresh(int wrapped)
 {
 		struct atomic_buffer *traverse;
 		int i,n,will_wrap;
@@ -569,7 +608,7 @@ int check_for_refresh(int wrapped)
 		will_wrap = jerk_virtual_screen(CURRENT_LINE->first_atom,0,traverse,i-1);
 		n = will_wrap%10000;//jerk_virtual_screen gives both no of wrapped lines and virtual column
 		max_column = (n-1)*BUFFER_SCREEN.max_x + BUFFER_SCREEN.current_column;//change the index in virtual screen as well	
-		will_wrap = will_wrap/10000;//get no of wrapped lines.
+		will_wrap = will_wrap/10000 + 1;//get no of wrapped lines.   I added +1 as virtual screen returns (line-1 * 10000 + column)
 		if(will_wrap == wrapped) //don't need to refresh the entire screen just the current line
 		{
 
@@ -580,7 +619,7 @@ int check_for_refresh(int wrapped)
 			return 1;
 		}
 }
-int delete_char(void)
+static int delete_char(void)
 {
 	struct line_buffer *temp_line,*temp_topline_buffer=NULL;
 	struct atomic_buffer *temp_atom,*pointer_atom; //pointer for current char in display
@@ -771,7 +810,7 @@ void jerk_flushinp(void)
 {
 	flushinp();
 }
-int edit_set_cursor(void)
+static int edit_set_cursor(void)
 {
 	if (NULL == CURRENT_ATOM)	//why i m writing this as a separate case cause it would make trouble if the CURRENT_ATOM is NULL and we try to access any thing from it in the successive lines
 	{
@@ -813,9 +852,7 @@ int redisplay_line(int opt)
 				{
 					//for insertion case because deletion cannot have scrolling downwards
 					//scroll down
-					move(SCREEN_STATUS,0);
-					printw("ONLY INSERTION");
-					refresh();
+					
 					move(BUFFER_SCREEN.currentline_screen,BUFFER_SCREEN.current_column);
 				}
 				else
@@ -1074,14 +1111,14 @@ int move_cursor(int key_val)
 	}
 	return 0;
 }
-int to_super_critical(void)
+static int to_super_critical(void)
 {
 	BUFFER_SCREEN.current_index=-1;
 	CURRENT_ATOM=NULL;
 	BUFFER_SCREEN.current_char_count=1;
 	return 0;
 }
-int to_critical(void)
+static int to_critical(void)
 {
 	int index_tmp=0;
 	struct line_buffer *move_tmp=CURRENT_LINE->previous_line;
@@ -1095,7 +1132,7 @@ int to_critical(void)
 	BUFFER_SCREEN.current_index=index_tmp;
 	return 0;
 }
-int from_critical(void)
+static int from_critical(void)
 {
 	int index_tmp=0;
 
@@ -1117,7 +1154,7 @@ int from_critical(void)
 		max_column++;
 	return 0;
 }
-int jerk_virtual_screen(struct atomic_buffer *tmp_start_atom,int tmp_start_index,struct atomic_buffer *tmp_atom,int tmp_current_index)//what this function does is-it simulates the behaviour of the screen in just numbers
+static int jerk_virtual_screen(struct atomic_buffer *tmp_start_atom,int tmp_start_index,struct atomic_buffer *tmp_atom,int tmp_current_index)//what this function does is-it simulates the behaviour of the screen in just numbers
 {
 	int virtual_index=tmp_start_index,virtual_column=0,virtual_line=0;
 	struct atomic_buffer *virtual_atom=tmp_start_atom;
@@ -1170,7 +1207,7 @@ int jerk_virtual_screen(struct atomic_buffer *tmp_start_atom,int tmp_start_index
 	else
 		return (10000*virtual_line + virtual_column);
 }
-int parse_position(void)
+static int parse_position(void)
 {
 	struct atomic_buffer *tmp_parse_atom=NULL;
 	int index_tmp=0;

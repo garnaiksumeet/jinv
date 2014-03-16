@@ -1,6 +1,7 @@
 #include"jinv.h"
 
 static FILE *in; 			// input file pointer
+static char write_buffer_file[WRITE_BUFFER_SIZE];
 
 static int save_exit_mode(void); //writes and exits or just exits or saves the file and goes to command_mode. or save new file ask for the file name(ask for either given or new)(FILE_EXISTS and FILE_NAME)
 static int exit_jerk(void);	//it releases all the data structures allocated and exits the editor
@@ -123,15 +124,18 @@ static int exit_jerk(void)
 }
 static int write_file(void)//this shall be part of the thread that calls for writing of file to disk
 {
-	int i;//need to pass the entire path of the file to be created
+	int i,j;//need to pass the entire path of the file to be created
 	//tmp=fopen("r_p.txt","w");            file has already been opened
 /*check for the condition if no file name is provided and ask for file name if so.
 */
+	
 	struct line_buffer *tmp_l=current_first_line();
 	struct atomic_buffer *tmp_a=tmp_l->first_atom;
 
 	while (NULL != tmp_l->next_line)
 	{
+		memset(write_buffer_file,'\0',WRITE_BUFFER_SIZE);
+		j=0;
 		while (NULL != tmp_a)
 		{
 			i=0;
@@ -147,15 +151,26 @@ static int write_file(void)//this shall be part of the thread that calls for wri
 						continue;
 					}
 					else
-						fputc((int)tmp_a->data[i],in);
+					{
+						write_buffer_file[j]=tmp_a->data[i];
+						j++;
+					}
 				}
 				i++;
 			}
 			tmp_a=tmp_a->next_atom;
+			if ((WRITE_BUFFER_SIZE - 2) == j)
+			{
+				fputs(write_buffer_file,in);
+				memset(write_buffer_file,'\0',WRITE_BUFFER_SIZE);
+				j=0;
+			}
 		}
+		fputs(write_buffer_file,in);
 		tmp_l=tmp_l->next_line;
 		tmp_a=tmp_l->first_atom;
 	}
+	memset(write_buffer_file,'\0',WRITE_BUFFER_SIZE);//just a cleanup code for buffer
 	fclose(in);		//check for eof at the end of file in stdio
 	//need to unlink,link and rename
 	return 0;
