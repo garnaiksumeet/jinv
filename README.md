@@ -1,19 +1,19 @@
-jinv
+JINV
 ====
+JINV-JINV is not vi
 
 Its a tui based vi-like modal text editor written entirely in C
 
 Installation Instructions:
 <br>
-first install ncurses library >= 4.0
+Required library : ncurses>= 4.0
 <br>
-cd ~/project_directory
+cd jinv--master/
 <br>
 make
 <br>
 ./jinv filename
 <br>
-press 'e' to go into edit mode and esc to return to command mode
+Press 'e' to go into edit mode and Esc to return to command mode
 <br>
-quitting and writing to file are same as vi (:wq and :q/:q!)
-
+Quitting and Writing to file are the same as vi (:wq and :q/:q!)
